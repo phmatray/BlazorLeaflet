@@ -154,8 +154,13 @@ public static class LeafletInterops
     public static ValueTask<float> GetZoom(IJSRuntime jsRuntime, string mapId)
         => jsRuntime.InvokeAsync<float>($"{BaseObjectContainer}.getZoom", mapId);
 
-    public static ValueTask ZoomIn(IJSRuntime jsRuntime, string mapId, MouseEventArgs e)
-        => jsRuntime.InvokeVoidAsync($"{BaseObjectContainer}.zoomIn", mapId, e);
+        public static async Task SetZoom(IJSRuntime jsRuntime, string mapId, float zoomLevel)
+        {
+            await jsRuntime.InvokeVoidAsync($"{_BaseObjectContainer}.setZoom", mapId, zoomLevel);
+        }
+
+        public static ValueTask ZoomIn(IJSRuntime jsRuntime, string mapId, MouseEventArgs e) =>
+            jsRuntime.InvokeVoidAsync($"{_BaseObjectContainer}.zoomIn", mapId, e);
 
     public static ValueTask ZoomOut(IJSRuntime jsRuntime, string mapId, MouseEventArgs e)
         => jsRuntime.InvokeVoidAsync($"{BaseObjectContainer}.zoomOut", mapId, e);
