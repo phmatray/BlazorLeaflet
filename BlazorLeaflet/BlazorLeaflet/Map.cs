@@ -12,32 +12,42 @@ using BlazorLeaflet.Utils;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace BlazorLeaflet;
-
-public class Map
+namespace BlazorLeaflet
 {
-    private readonly IJSRuntime _jsRuntime;
-    private readonly ObservableCollection<Layer> _layers = new();
-
-    private bool _isInitialized;
-
-    public Map(IJSRuntime jsRuntime)
+    public class Map
     {
-        _jsRuntime = jsRuntime ?? throw new ArgumentNullException(nameof(jsRuntime));
-        Id = StringHelper.GetRandomString(10);
+        private LatLng _Center = new LatLng();
+        /// <summary>
+        /// Geographic center of the map
+        /// </summary>
+        /// 
+        public LatLng Center
+        {
+            get => _Center;
+            set
+            {
+                _Center = value;
+                if (_isInitialized)
+                    RunTaskInBackground(async () => await LeafletInterops.PanTo(
+                        _jsRuntime, Id, value.ToPointF(), false, 0, 0, false));
+            }
+        }
 
-        _layers.CollectionChanged += async (sender, args) => await OnLayersChanged(sender, args);
-    }
-
-    /// <summary>
-    ///     Initial geographic center of the map
-    /// </summary>
-    public LatLng Center { get; set; } = new();
-
-    /// <summary>
-    ///     Initial map zoom level
-    /// </summary>
-    public float Zoom { get; set; }
+        private float _Zoom;
+        /// <summary>
+        /// Map zoom level
+        /// </summary>
+        public float Zoom
+        {
+            get => _Zoom;
+            set
+            {
+                _Zoom = value;
+                if (_isInitialized)
+                    RunTaskInBackground(async () => await LeafletInterops.SetZoom(
+                        _jsRuntime, Id, value));
+            }
+        }
 
     /// <summary>
     ///     Minimum zoom level of the map. If not specified and at least one
@@ -74,14 +84,42 @@ public class Map
     /// </summary>
     public event Action? OnInitialized;
 
-    /// <summary>
-    ///     This method MUST be called only once by the Blazor component upon rendering, and never by the user.
-    /// </summary>
-    public void RaiseOnInitialized()
-    {
-        _isInitialized = true;
-        OnInitialized?.Invoke();
-    }
+        public string Id { get; }
+
+        private ObservableCollection<Layer> _layers = new ObservableCollection<Layer>();
+
+        private readonly IJSRuntime _jsRuntime;
+
+        private bool _isInitialized;
+
+        public Map(IJSRuntime jsRuntime)
+        {
+            _jsRuntime = jsRuntime ?? throw new ArgumentNullException(nameof(jsRuntime));
+            Id = StringHelper.GetRandomString(10);
+
+            _layers.CollectionChanged += OnLayersChanged;
+        }
+
+        /// <summary>
+        /// This method MUST be called only once by the Blazor component upon rendering, and never by the user.
+        /// </summary>
+        public void RaiseOnInitialized()
+        {
+            _isInitialized = true;
+            OnInitialized?.Invoke();
+        }
+
+        private async void RunTaskInBackground(Func<Task> task)
+        {
+            try
+            {
+                await task();
+            }
+            catch (Exception ex)
+            {
+                NotifyBackgroundExceptionOccurred(ex);
+            }
+        }
 
     /// <summary>
     ///     Add a layer to the map.
@@ -185,7 +223,18 @@ public class Map
     public async Task ZoomOut(MouseEventArgs e)
         => await LeafletInterops.ZoomOut(_jsRuntime, Id, e);
 
-    #region events
+        private async Task UpdateZoom()
+        {
+            _Zoom = await GetZoom();
+        }
+
+        private async Task UpdateCenter()
+        {
+            
+            _Center = await GetCenter();
+        }
+
+        #region events
 
     public delegate void MapEventHandler(object sender, Event e);
 
@@ -247,17 +296,33 @@ public class Map
 
     public event MapEventHandler? OnZoomEnd;
 
-    [JSInvokable]
-    public void NotifyZoomEnd(Event e)
-        => OnZoomEnd?.Invoke(this, e);
+        public event MapEventHandler OnZoomEnd;
+        [JSInvokable]
+        public async void NotifyZoomEnd(Event e)
+        {
+            try
+            {
+                await UpdateZoom();
+            }
+            finally
+            {
+                OnZoomEnd?.Invoke(this, e);
+            }
+        }
 
-    public event MapEventHandler? OnMoveEnd;
-
-    [JSInvokable]
-    public void NotifyMoveEnd(Event e)
-        => OnMoveEnd?.Invoke(this, e);
-
-    public event MouseEventHandler? OnMouseMove;
+        public event MapEventHandler OnMoveEnd;
+        [JSInvokable]
+        public async void NotifyMoveEnd(Event e)
+        {
+            try
+            {
+                await UpdateCenter();
+            }
+            finally
+            {
+                OnMoveEnd?.Invoke(this, e);
+            }
+        }
 
     [JSInvokable]
     public void NotifyMouseMove(MouseEvent eventArgs)
@@ -287,7 +352,11 @@ public class Map
     public void NotifyPreClick(MouseEvent eventArgs)
         => OnPreClick?.Invoke(this, eventArgs);
 
-    #endregion events
+        public event EventHandler<Exception> BackgroundExceptionOccurred;
+        private void NotifyBackgroundExceptionOccurred(Exception exception) =>
+            BackgroundExceptionOccurred?.Invoke(this, exception);
+
+        #endregion events
 
     #region InteractiveLayerEvents
 
