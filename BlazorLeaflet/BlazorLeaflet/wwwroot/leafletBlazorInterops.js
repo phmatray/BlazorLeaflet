@@ -1,4 +1,4 @@
-﻿maps = {};
+maps = {};
 layers = {};
 
 window.leafletBlazor = {
@@ -16,7 +16,7 @@ window.leafletBlazor = {
         maps[map.id] = leafletMap;
         layers[map.id] = [];
     },
-    addTilelayer: function (mapId, tileLayer, objectReference) {
+    addTileLayer: function (mapId, tileLayer, objectReference) {
         const layer = L.tileLayer(tileLayer.urlTemplate, {
             attribution: tileLayer.attribution,
             pane: tileLayer.pane,
@@ -221,6 +221,12 @@ window.leafletBlazor = {
         if (map.getZoom() > map.getMinZoom()) {
             map.zoomOut(map.options.zoomDelta * (e.shiftKey ? 3 : 1));
         }
+    },
+    getBounds: function (mapId) {
+        return maps[mapId].getBounds();
+    },
+    setZoom: function (mapId, zoomLevel) {
+        maps[mapId].setZoom(zoomLevel);
     }
 };
 
