@@ -18,6 +18,7 @@
   <button class="btn btn-primary mb-2" @onclick="FindCity">Search</button>
   <button class="btn btn-primary mb-2" @onclick="ZoomMap">Zoom</button>
   <button class="btn btn-primary mb-2" @onclick="PanToNY">Pan to New York</button>
+    <button class="btn btn-primary mb-2" @onclick="SetToNY">Set center at New York</button>
 </div>
 
 <div style="height: 500px; width: 500px;">
@@ -116,4 +117,9 @@
     _map?.PanTo(new PointF(40.713185f, -74.0072333f), true, 10f);
   }
 
+  private void SetToNY()
+  {
+    _map.Center = new LatLng(new PointF(40.713185f, -74.0072333f));
+    _map.Zoom = 15;
+  }
 }
